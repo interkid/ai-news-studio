@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI News Studio - 認可完了</title>
+<style>
+  body { font-family: -apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; line-height: 1.7; color: #222; }
+  a { color: #0a66c2; }
+</style>
+</head>
+<body>
+
+<p>認可を処理しています。自動的に転送されない場合は<a id="link">こちら</a>をクリックしてください。</p>
+
+<script>
+  // TikTok Login KitのRedirect URIはhttps必須のため、いったんこの静的ページを経由し、
+  // クライアント側JSでローカルCLI(`studio auth tiktok`)のコールバックサーバへ橋渡しする。
+  // code/state はクエリ文字列のままここから先の宛先へ引き継ぐ。
+  var target = "http://localhost:8921/callback" + window.location.search;
+  document.getElementById("link").href = target;
+  window.location.replace(target);
+</script>
+
+</body>
+</html>
