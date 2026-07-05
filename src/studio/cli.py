@@ -5,9 +5,12 @@ render / pipeline / publish / auth tiktok は実体を持つ。analyze は後続
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import typer
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 
 app = typer.Typer(help="AI産業革命報道局 — TikTok半自動運用システム", no_args_is_help=True)
 auth_app = typer.Typer(help="外部サービスの初回OAuth認可")
