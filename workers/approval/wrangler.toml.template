@@ -1,0 +1,10 @@
+# scripts/deploy_worker.py がこのテンプレートから実際の wrangler.toml を生成する
+# (KV Namespace ID を .env から埋め込むため)。このファイル自体はプレースホルダのみでコミット対象。
+name = "ai-news-studio-approval"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+account_id = "__CF_ACCOUNT_ID__"
+
+[[kv_namespaces]]
+binding = "APPROVAL_KV"
+id = "__CF_KV_NAMESPACE_ID__"

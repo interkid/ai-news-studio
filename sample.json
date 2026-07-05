@@ -1,0 +1,49 @@
+{
+  "corner": "paper",
+  "hook": "精度94%の衝撃",
+  "exchanges": [
+    {
+      "speaker": "fox",
+      "text": "精度94%、AIが医療診断を大きく変えます",
+      "emotion": "surprised",
+      "duration_sec": 4.2
+    },
+    {
+      "speaker": "rabbit",
+      "text": "えっ、お医者さんいらずになるの？",
+      "emotion": "curious",
+      "duration_sec": 2.8
+    },
+    {
+      "speaker": "fox",
+      "text": "画像診断で専門医に並ぶ正答率が出たんだ",
+      "emotion": "smug",
+      "duration_sec": 3.6
+    },
+    {
+      "speaker": "rabbit",
+      "text": "あなたの健康にも直結する大事な話だね",
+      "emotion": "normal",
+      "duration_sec": 3.2
+    }
+  ],
+  "brolls": [
+    {
+      "prompt": "a friendly cartoon doctor AI analyzing a medical scan on a screen",
+      "caption_ja": "AI医療診断のイメージ",
+      "start_line": 0
+    },
+    {
+      "prompt": "cute illustrated hospital chart showing high accuracy percentage",
+      "caption_ja": "高い正答率を示す図",
+      "start_line": 2
+    }
+  ],
+  "caption": "AIが医療診断を変える最新研究を解説。※AI生成/出典はコメント欄。VOICEVOX:玄野武宏・小夜",
+  "source_url": "https://arxiv.org/abs/2401.00001",
+  "fact_claims": [
+    "画像診断でAIが専門医に並ぶ正答率を示した",
+    "報告された精度は94%"
+  ],
+  "visual_keyword": "医療AI診断"
+}

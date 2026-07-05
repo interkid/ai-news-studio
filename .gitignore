@@ -1,0 +1,21 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.claude/settings.local.json
+workers/approval/wrangler.toml
+workers/approval/node_modules/
+data/*.db
+out.mp4
+*.mp4
+_spec*.md
+.pytest_cache/
+.ruff_cache/
+windows-cpu/
+Gemini_Generated_Image_epcp1tepcp1tepcp.png
+# 生成プレースホルダ（scripts/gen_placeholders.py で再生成可）
+assets/characters/fox/
+assets/characters/rabbit/
+assets/characters/manifest.json
+assets/layout/
+data/runs/

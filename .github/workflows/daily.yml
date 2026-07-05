@@ -1,0 +1,71 @@
+name: daily
+
+on:
+  workflow_dispatch: {}
+  # 動画の品質を目視確認できるまでは自動実行しない(手動実行=workflow_dispatchのみ)。
+  # 確認が済んだら以下のコメントを外して有効化する(JST 7:00 = UTC 22:00 前日)。
+  # schedule:
+  #   - cron: "0 22 * * *"
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    services:
+      voicevox:
+        image: voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+        ports:
+          - 50021:50021
+    steps:
+      - uses: actions/checkout@v4
+
+      # studio.dbはtopics/scripts/videosの状態管理に使うため、pipeline実行とpublish実行の
+      # 間(=別ジョブ)で引き継ぐ必要がある。動画本体(mp4)はR2が正であり、ここでは
+      # DBファイルだけをキャッシュする(runs-idごとにキーを変えて必ず上書き保存する)。
+      - name: Restore studio.db
+        uses: actions/cache/restore@v4
+        with:
+          path: data/studio.db
+          key: studio-db-${{ github.run_id }}
+          restore-keys: |
+            studio-db-
+
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system deps (ffmpeg, Noto CJK)
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-noto-cjk
+
+      - name: Install project deps
+        run: uv sync --extra pipeline
+
+      - name: Wait for VOICEVOX
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:50021/version && exit 0
+            sleep 2
+          done
+          echo "VOICEVOXが起動しませんでした" >&2
+          exit 1
+
+      - name: Run pipeline
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          FAL_KEY: ${{ secrets.FAL_KEY }}
+          VOICEVOX_URL: http://localhost:50021
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+          LINE_CHANNEL_SECRET: ${{ secrets.LINE_CHANNEL_SECRET }}
+          LINE_ADMIN_USER_ID: ${{ secrets.LINE_ADMIN_USER_ID }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: uv run studio pipeline
+
+      - name: Save studio.db
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/studio.db
+          key: studio-db-${{ github.run_id }}

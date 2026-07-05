@@ -1,0 +1,9 @@
+# VOICEVOX Engine（音声合成・M2以降）。GitHub Actions では daily.yml の services: で
+# 同一イメージを起動する（CI用）。ローカル開発ではスタンドアロン版(run.exe等)を推奨——
+# Dockerより軽量。 https://github.com/VOICEVOX/voicevox_engine/releases
+services:
+  voicevox:
+    image: voicevox/voicevox_engine:cpu-ubuntu20.04-latest
+    ports:
+      - "50021:50021"
+    restart: unless-stopped
