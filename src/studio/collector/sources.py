@@ -18,6 +18,10 @@ ARXIV_CATEGORIES = ["cs.AI", "cs.CL", "cs.LG"]
 ARXIV_API = "http://export.arxiv.org/api/query"
 HN_SEARCH_API = "https://hn.algolia.com/api/v1/search"
 
+# 3ソース共通の鮮度ウィンドウ。毎日インパクトのある論文/記事が出るとは限らないため、
+# 1日単位ではなく1か月以内で統一する。
+COLLECT_WINDOW_HOURS = 24 * 30
+
 _retry = retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=8))
 
 
@@ -37,7 +41,7 @@ def _entry_time(entry: dict) -> dt.datetime | None:
 
 
 @_retry
-def fetch_arxiv(hours: int = 24, max_results: int = 20) -> list[Candidate]:
+def fetch_arxiv(hours: int = COLLECT_WINDOW_HOURS, max_results: int = 20) -> list[Candidate]:
     query = " OR ".join(f"cat:{c}" for c in ARXIV_CATEGORIES)
     params = {
         "search_query": query,
@@ -68,7 +72,7 @@ def fetch_arxiv(hours: int = 24, max_results: int = 20) -> list[Candidate]:
     return out
 
 
-def fetch_rss(feeds: list[str], hours: int = 48) -> list[Candidate]:
+def fetch_rss(feeds: list[str], hours: int = COLLECT_WINDOW_HOURS) -> list[Candidate]:
     cutoff = dt.datetime.now(dt.UTC) - dt.timedelta(hours=hours)
     out: list[Candidate] = []
     for url in feeds:
@@ -97,19 +101,30 @@ def fetch_rss(feeds: list[str], hours: int = 48) -> list[Candidate]:
 
 
 @_retry
-def fetch_hn(query: str = "AI", min_points: int = 100, hits: int = 20) -> list[Candidate]:
+def fetch_hn(
+    query: str = "AI",
+    min_points: int = 100,
+    hits: int = 20,
+    hours: int = COLLECT_WINDOW_HOURS,
+) -> list[Candidate]:
     # Algolia HN Search API は points への numericFilters を許可していないため、
-    # 通常検索を取得してから client 側で points>min_points を絞り込む。
+    # 通常検索を取得してから client 側で points>min_points・鮮度を絞り込む。
     params = {"query": query, "tags": "story", "hitsPerPage": hits}
     resp = httpx.get(HN_SEARCH_API, params=params, timeout=15.0)
     resp.raise_for_status()
     data = resp.json()
+    cutoff = dt.datetime.now(dt.UTC) - dt.timedelta(hours=hours)
     out: list[Candidate] = []
     for hit in data.get("hits", []):
         url = hit.get("url")
         points = hit.get("points") or 0
+        created_at_i = hit.get("created_at_i")
         if not url or points <= min_points:
             continue  # Ask HN等、外部URLのない投稿は破棄。スコア不足もskip
+        if created_at_i is not None:
+            created = dt.datetime.fromtimestamp(created_at_i, tz=dt.UTC)
+            if created < cutoff:
+                continue  # 過去にバズった古い記事は鮮度切れでskip
         out.append(
             Candidate(source_url=url, source_type="hn", title=hit.get("title") or "", summary=None)
         )
