@@ -40,6 +40,9 @@ jobs:
       - name: Install project deps
         run: uv sync --extra pipeline
 
+      - name: Generate placeholder assets
+        run: uv run python scripts/gen_placeholders.py
+
       - name: Wait for VOICEVOX
         run: |
           for i in $(seq 1 30); do
