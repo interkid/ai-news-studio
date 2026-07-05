@@ -56,6 +56,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           FAL_KEY: ${{ secrets.FAL_KEY }}
+          DAILY_LLM_CALL_LIMIT: ${{ secrets.DAILY_LLM_CALL_LIMIT }}
           VOICEVOX_URL: http://localhost:50021
           LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
           LINE_CHANNEL_SECRET: ${{ secrets.LINE_CHANNEL_SECRET }}
