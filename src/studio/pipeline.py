@@ -1,6 +1,6 @@
 """`studio pipeline` の全体オーケストレーション（SPEC 7章「実行順の注意」）。
 
-実行順: 収集(Stage1) → 台本3案+検証(Stage2) → 採点で1案に絞る(Stage5)
+実行順: 収集(Stage1) → 台本2案+検証(Stage2) → 採点で1案に絞る(Stage5)
 → TTS(Stage3) → 挿絵(Stage3.5) → レンダ(Stage4) → 承認依頼(Stage6, dry-runは省略)。
 TTS・画像生成・レンダは選ばれた1案のみに対して行う。実測尺が25秒を超えた場合のみ
 次点の案へフォールバックする。
@@ -58,7 +58,7 @@ def _run_core(db: Database, llm: LLMClient, run_dir: Path) -> PipelineResult | N
         return None
     topic_row = db.get_topic(topic_ids[0])  # Stage2以降は上位1トピックのみ対象
 
-    # Stage 2: 台本3案生成 + ファクト検証
+    # Stage 2: 台本2案生成 + ファクト検証
     script_ids = write_scripts(db, llm, topic_row)
     if not script_ids:
         logger.info("台本がファクト検証を通過できませんでした。本日は投稿しません。")

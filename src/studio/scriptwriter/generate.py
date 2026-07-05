@@ -1,4 +1,4 @@
-"""台本3案生成（SPEC 5章スキーマ + 7章 Stage 2 + フックガイドライン）。
+"""台本2案生成（SPEC 5章スキーマ + 7章 Stage 2 + フックガイドライン。LLM日次上限対策で3→2に変更）。
 
 Script モデル自体の validator（文字数制約・AI生成ラベル等）を
 LLM出力の受け入れ基準として再利用する。validator に落ちた案はそのままスキップし、
@@ -99,7 +99,7 @@ def generate_variants(
     llm: LLMClient,
     topic: TopicInput,
     insights: list[str],
-    n: int = 3,
+    n: int = 2,
     retry_notes: str | None = None,
 ) -> tuple[list[Script], list[str]]:
     """temperatureを変えたn案を生成する。
