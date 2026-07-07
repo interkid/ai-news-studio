@@ -1,7 +1,12 @@
 name: daily
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      image_daily_limit:
+        description: "画像生成の日次上限。0で生成スキップ(固定背景・既存素材のみで合成)"
+        required: false
+        default: "5"
   # 動画の品質を目視確認できるまでは自動実行しない(手動実行=workflow_dispatchのみ)。
   # 確認が済んだら以下のコメントを外して有効化する(JST 7:00 = UTC 22:00 前日)。
   # schedule:
@@ -67,6 +72,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           FAL_KEY: ${{ secrets.FAL_KEY }}
           DAILY_LLM_CALL_LIMIT: ${{ secrets.DAILY_LLM_CALL_LIMIT }}
+          IMAGE_DAILY_LIMIT: ${{ github.event.inputs.image_daily_limit || '5' }}
           VOICEVOX_URL: http://localhost:50021
           LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
           LINE_CHANNEL_SECRET: ${{ secrets.LINE_CHANNEL_SECRET }}
