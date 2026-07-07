@@ -11,8 +11,9 @@
 - コードスタイルは **ruff + type hints 必須**、設定より規約、過剰な抽象化をしない。
 
 ## 何を作るか（1行）
-AIニュース・論文を **きつね(解説)×うさぎ(聞き役)** の掛け合い **10〜25秒 縦型ショート動画** に自動変換し、
+AIニュース・論文を **垂れ耳解説うさぎ×白い聞き役うさぎ** の掛け合い **10〜25秒 縦型ショート動画** に自動変換し、
 **LINEで管理者承認**を経て **TikTokにドラフト送信**するシステム。
+（2026-07-07: きつね×うさぎから変更。内部スピーカーID/素材ディレクトリは `fox` のまま）
 
 ## 絶対に守る制約
 - 全動画は**ソースURLに基づく事実のみ**。ファクト検証に落ちた台本は自動リジェクト。
@@ -77,16 +78,16 @@ TTS・画像生成・レンダは**選ばれた1案のみ**に実行。実測尺
 - **M6 分析ループ**（SPEC原文のM5をここに移動）: metrics収集・weekly.yml・prompt_insights自動更新。
 - **M7 運用強化（任意・元M6の残り）**: コメント返信案・増産スイッチ・Layer3 フック映像。
 
-## 現在の状態（2026-07-05時点）
-- M1〜M3実装済み。`studio render` / `studio pipeline`（dry-run・本番とも）/ LINE承認フローがE2Eで動作確認済み。
-- M4: TikTok Developer側の準備完了・コード実装完了（`studio auth tiktok` / `publisher/tiktok.py` /
-  `publisher/kv.py` / `studio publish` / `.github/workflows/daily.yml`・`publish.yml`）。
-  ただしGitHub Actionsの自動実行(cron)は**意図的に無効のまま**（`workflow_dispatch`のみ有効）。
-  動画の品質チェック（M5）が済むまで無人自動投稿はONにしない方針。次はRedirect URI登録と
-  `studio auth tiktok` / `workflow_dispatch`でのE2E確認（詳細は `NEXT_STEPS.md`）。
-- 設定済み: `ANTHROPIC_API_KEY` / `LINE_*` / `R2_*` / `CF_*` / `TIKTOK_*`。Cloudflare Worker(`workers/approval/`)は
-  `ai-news-studio-approval.ai-news-studio.workers.dev` にデプロイ済み。
-- 未設定: `FAL_KEY`（画像生成は固定背景にフォールバック中）。
+## 現在の状態（2026-07-07時点）
+- M1〜M4実装済み・E2E確認済み。**M4は全段通しで成功**: `daily.yml`（収集→台本→TTS→レンダ→R2→
+  LINE承認依頼）→ LINE承認 → `publish.yml`（KV検知→TikTok inboxドラフト送信→LINE完了通知）。
+  GitHub Actionsの自動実行(cron)は**引き続き意図的に無効**（`workflow_dispatch`のみ有効）。
+  動画の品質チェック（M5）が済むまで無人自動投稿はONにしない方針。
+- M5進行中: キャラ刷新完了（うさぎペア・ピクサー調3DCG・11状態、`assets/characters/`にコミット済み）、
+  ビート構成テンプレ+文字数リペア実装済み。残り = layoutのロゴ/バッジ刷新・演出バリエーション・
+  ネタ事前レビュー（詳細は `NEXT_STEPS.md`）。
+- 設定済み: `ANTHROPIC_API_KEY` / `FAL_KEY` / `LINE_*` / `R2_*` / `CF_*` / `TIKTOK_*`（ローカル`.env`と
+  GitHub Secretsの両方。Secretsがローカルと食い違って落ちた前例あり→`.env`正としてAPIで同期する）。
+  Cloudflare Worker(`workers/approval/`)は `ai-news-studio-approval.ai-news-studio.workers.dev` にデプロイ済み。
 - 外部サービスの設定手順は `manual.md` を参照。
-- リポジトリはローカルgitで追跡中だが、GitHub(`github.com/interkid/ai-news-studio`)へは
-  現状`docs/`のみpush済み。`src/`等本体のpushは未実施（タイミングは別途相談）。
+- リポジトリ本体は GitHub(`github.com/interkid/ai-news-studio`) の master へpush済み。

@@ -13,9 +13,8 @@ _spec*.md
 .ruff_cache/
 windows-cpu/
 Gemini_Generated_Image_epcp1tepcp1tepcp.png
-# キャラ素材は本番品質へ差し替え済みのためコミット対象（2026-07-07 M5-1）。
-# 生成の中間物・スタイル候補のみ除外。layoutは未刷新なのでプレースホルダのまま除外。
+# キャラ/レイアウト素材は本番品質へ差し替え済みのためコミット対象（2026-07-07 M5-1）。
+# 生成の中間物・スタイル候補のみ除外。
 assets/characters/_work/
 assets/characters/style_candidates/
-assets/layout/
 data/runs/

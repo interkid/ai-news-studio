@@ -5,18 +5,19 @@ CLAUDE.mdのマイルストーン順（M4→M5→M6→M7）に対応するタス
 
 ---
 
-## M4: TikTok連携（運用開始・E2E検証中）
+## M4: TikTok連携（✅ E2E完了 2026-07-07）
 
-TikTok Developer側の登録・アプリ実装・GitHub Actions構築・OAuth認可・リポジトリ本体のpush・
-GitHub Secrets登録はすべて完了。現在は`workflow_dispatch`での`daily.yml`実行を繰り返し、
-出てきたエラーをその都度修正している段階（bg.png未生成・ログ不可視・`DAILY_LLM_CALL_LIMIT`未反映・
-HN収集の鮮度フィルタ欠如などを修正済み）。
+daily.yml（収集→台本→TTS→レンダ→R2→LINE承認依頼）→ LINE承認 → publish.yml
+（KV検知→TikTok inboxチャンクアップロード→LINE完了通知）まで全段通しで成功
+（`[published] script_id=21`）。E2E中に修正した項目:
+- 台本の合計文字数(70〜100字)にLLMが収束しない → 実測文字数を添えた最小修正リペアを実装
+- ファクト検証の不合格理由がCIログに出ない → WARNINGログ追加
+- GitHub Secretsの`FAL_KEY`未登録・`R2_*`誤値(NoSuchBucket)・`CF_API_TOKEN`誤値(401)
+  → ローカル`.env`の正値をAPIで同期（scratchpadのsync_secrets.py方式）
 
-### 次にやること
-- [ ] `workflow_dispatch`で`daily.yml`を再実行し、台本が品質基準を通過して`publish.yml`まで
-      到達するかE2Eで確認（収集の鮮度フィルタ修正が効くか要観察）
-- [ ] 承認済み動画が実際にTikTokアプリの下書きに現れることを確認
-- [ ] （E2E確認が済み、必要と判明した場合のみ）TikTok連携の一連の流れを画面録画し、デモ動画として提出
+### 残タスク
+- [ ] TikTokアプリの下書きに動画が実際に届いているかの目視確認（ユーザ作業）
+- [ ] （必要と判明した場合のみ）TikTok連携の一連の流れを画面録画し、デモ動画として提出
 
 ### 現状のTikTok認可情報
 - 本番アプリの審査は待たず、**当面Sandboxのclient_key/secretで運用**する方針（GitHub Secrets登録済み）
@@ -36,16 +37,20 @@ HN収集の鮮度フィルタ欠如などを修正済み）。
 （2026-07-06 見直し。4のプロンプトのビート構成テンプレ化は実装済み）
 各項目の完了条件 = `studio render`でサンプル動画を出力し目視で品質確認すること。
 
-**fal.aiの状態（2026-07-06時点）**: アカウント作成・クレカ登録・APIキー発行・`.env`への
-`FAL_KEY`設定まで完了。キーの有効性も確認済み。**ただし残高チャージが未実施**のため
-APIはロック中（403 "Exhausted balance"）。
-→ **残タスク（ユーザー作業）**: https://fal.ai/dashboard/billing の「Add funds」で
-$10前後をチャージする（auto top-upはOFF推奨）。チャージ後にFLUX schnell 1枚で疎通テスト
-（約0.5円）を再実行してから項目1に着手する。手順詳細は`manual.md`セクション2。
+**fal.aiの状態（2026-07-07更新）**: $10チャージ済み・疎通確認済みで**稼働中**。
+GitHub Secretsにも`FAL_KEY`登録済み（CIのB-roll生成も有効）。
 
-### 1. キャラ/背景素材の刷新（最優先・fal.ai残高チャージが前提）
-`assets/characters/`・`assets/layout/`のプレースホルダ（単色図形の自作イラスト）を本番品質へ差し替え
-（`manifest.json`経由なのでレンダラー側の改修は不要な想定）。
+### 1. キャラ/背景素材の刷新（✅ キャラ完了 2026-07-07 / layoutの一部残り）
+**キャラ構成の変更（ユーザ決定）**: きつね×うさぎは既存作品との類似感が強いため、
+**「キャラメル色の垂れ耳解説うさぎ（丸眼鏡+赤蝶ネクタイ+紺ベスト）×白い聞き役うさぎ（黄スカーフ）」
+のうさぎペア**へ変更。内部スピーカーID・ディレクトリ名は`fox`のまま（コード改修を最小化）。
+- 画風はピクサー調3DCG（スタイル候補4案からユーザがAを選定）
+- Nano Banana Pro編集モードで11状態を生成→rembgで透過→共通bboxで切り出し→コミット済み
+- `mouth_closed`は`normal`のコピー（シルエット完全一致）
+- `scripts/gen_character_assets.py`(生成) / `scripts/finalize_character_assets.py`(仕上げ)で再現可能
+- `assets/layout/bg.png`も同画風（夜空+雲+ボケ光）へ差し替え済み
+- **残り**: `logo.png`・`badge_*.png`・`broll_placeholder.png`の刷新（日本語テキストは
+  AI生成が苦手なためPillow描画の色・形の改善で対応する方針）
 
 **決定した方式（2026-07-06更新）**: グリッド一括生成ではなく、fal.ai経由の **Nano Banana Pro
 （Gemini 3 Pro Image, $0.15/枚）** を第一候補に使う（キャラ同一性維持・表情差分が現行モデルで最も得意。
@@ -121,14 +126,12 @@ CIジョブを人間の返信待ちでブロックさせないため、「収集
 
 ---
 
-## 現在地点
+## 現在地点（2026-07-07更新）
 
-M1〜M3実装済み・E2E動作確認済み（`studio render` / `studio pipeline` / LINE承認フロー）。
-M4はTikTok Developer側の準備・コード実装・リポジトリ本体のpush・GitHub Secrets登録まで完了し、
-`workflow_dispatch`によるE2E検証を反復中（発見したバグを都度修正しながら進めている段階）。
-GitHub Actionsのcronは品質チェック待ちで意図的に保留中(手動実行のみ有効)。
+**M4完了**: daily.yml→LINE承認→publish.yml→TikTokドラフト送信までE2Eで成功。
+GitHub Actionsのcronは品質チェック待ちで引き続き意図的に保留中(手動実行のみ有効)。
 
-M5に着手中。進め方は上記の通り（1→4→2→3）。4のビート構成テンプレ化は実装済み
-（`scriptwriter/generate.py`のプロンプト + `scorer/score.py`の採点軸更新、pytest/ruff通過）。
-`FAL_KEY`は設定済みだが**残高チャージ待ち**（上記M5冒頭のfal.ai状態メモを参照）。
-チャージ完了後、項目1（キャラ/背景刷新）のスタイル候補生成から再開する。
+M5進行中（1→4→2→3）。1のキャラ刷新（うさぎペア化）と4のビート構成テンプレ化
++文字数リペア機構は完了。残りは1のlayout一部（ロゴ・バッジ）、2の演出バリエーション、
+3のネタ事前レビュー。次に着手するのは**2（演出バリエーション追加）**が妥当
+（新キャラ素材の見栄えを最大化できるため）。
