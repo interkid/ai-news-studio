@@ -25,17 +25,38 @@
 
 ---
 
-## 2. fal.ai（画像生成・M2から・任意）※後で
+## 2. fal.ai（画像生成・M5キャラ刷新とB-roll挿絵に必要）
 
-B-roll挿絵の生成に使う。**未設定でも動画は生成される**（brollが固定背景にフォールバックするだけ）。
+B-roll挿絵の生成と、M5のキャラ/背景素材の刷新（FLUX.1 Kontext）に使う。
+**未設定でも動画は生成される**（brollが固定背景にフォールバックするだけ）。
 
-1. https://fal.ai/ でアカウント作成
-2. ダッシュボードからAPIキーを発行
-3. `.env` に設定:
+### キー発行手順
+1. https://fal.ai/ でアカウント作成（GitHubアカウント等でサインアップ可）
+2. https://fal.ai/dashboard/keys を開き「Create Key」→ 名前を付けて作成
+   - スコープは「API」で十分（「ADMIN」はデプロイ用なので不要）
+   - **キーは作成直後の1回しか表示されない**ので、その場でコピーすること
+3. ダッシュボードのBillingで支払い方法（クレジットカード）を登録
+4. **残高をチャージする（重要）**: https://fal.ai/dashboard/billing で「Add funds」から前払いチャージ。
+   **カード登録だけでは残高0のままロックされ、APIが403（Exhausted balance）を返す**。
+   最低額（$10前後）で十分（B-roll月150枚+キャラ刷新一式でも$10でお釣りが来る）。
+   自動チャージ(auto top-up)は使い過ぎ防止のためOFF推奨
+5. `.env` に設定:
    ```
    FAL_KEY=xxxxxxxx
    ```
-4. （任意）`IMAGE_DAILY_LIMIT`（デフォルト5枚/日）を調整
+6. GitHub Actionsでも使う場合は GitHub Secrets にも `FAL_KEY` を登録
+   （リポジトリ Settings → Secrets and variables → Actions。`daily.yml`は登録済みSecretsを参照する）
+7. （任意）`IMAGE_DAILY_LIMIT`（デフォルト5枚/日）を調整
+
+### 料金の目安（2026-07時点）
+- FLUX.1 [schnell]（B-roll用・text-to-image）: **$0.003/メガピクセル**（1MP未満は切り上げ）。
+  日次5枚運用なら月150枚でも**数十円〜数百円**程度
+- Nano Banana Pro（キャラ刷新の第一候補・生成/編集とも）: **$0.15/枚**。
+  キャラ11状態+背景/ロゴ/バッジ類をリトライ込みで50枚生成しても**約$7.5（約1,100円）の一回きり**
+- FLUX.1 Kontext [pro]（キャラ刷新のコスト重視代替・image-to-image編集）: **$0.04/枚**
+- いずれも月5,000円予算に対して十分小さい。動作確認は
+  `https://fal.run/fal-ai/flux/schnell` へのcurl（`Authorization: Key $FAL_KEY`）または
+  `studio pipeline --dry-run`後の実行ログで行う
 
 ---
 

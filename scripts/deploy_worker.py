@@ -27,7 +27,7 @@ def _wrangler_cmd() -> str:
 
         if which(cand):
             return cand
-    raise SystemExit("wrangler が見つかりません。`npm install -g wrangler` を先に実行してください。")
+    raise SystemExit("wrangler が見つかりません。`npm install -g wrangler` を先に実行すること。")
 
 
 def main() -> None:
