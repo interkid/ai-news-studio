@@ -14,7 +14,7 @@ from pathlib import Path
 
 from .collector.collect import run as collect_run
 from .imagegen.pipeline import generate_brolls
-from .notifier.line import notify_for_approval
+from .notifier.line import notify_for_approval, notify_topic_ranking
 from .publisher.r2 import upload_video
 from .renderer.render import render_script_object
 from .scorer.score import append_note, select_script
@@ -49,10 +49,23 @@ def _ranked_script_ids(db: Database, script_ids: list[int]) -> list[int]:
     return [r["id"] for r in rows]
 
 
-def _run_core(db: Database, llm: LLMClient, run_dir: Path) -> PipelineResult | None:
+RANKING_DIGEST_SIZE = 10
+
+
+def _run_core(
+    db: Database, llm: LLMClient, run_dir: Path, *, send_ranking: bool = False
+) -> PipelineResult | None:
     """Stage1〜4を実行し、選出動画を作る（Stage6は呼び出し側の責務）。"""
-    # Stage 1: 収集
+    # Stage 1: 収集（ネタストック更新 + ストック全体ランキング）
     topic_ids = collect_run(db, llm, top_n=3)
+
+    # M5-3b: ストック上位をLINEに配信（配信失敗でパイプラインは止めない）
+    if send_ranking:
+        try:
+            notify_topic_ranking(db.stock_ranking(RANKING_DIGEST_SIZE))
+        except Exception:
+            logger.exception("ネタランキングのLINE配信に失敗（続行）")
+
     if not topic_ids:
         logger.info("収集できるトピックがありませんでした。本日は投稿しません。")
         return None
@@ -122,7 +135,7 @@ def run_dry(db: Database, llm: LLMClient, run_dir: Path) -> PipelineResult | Non
 
 def run(db: Database, llm: LLMClient, run_dir: Path) -> PipelineResult | None:
     """Stage6(R2アップロード + LINE承認依頼)まで行う本番実行。"""
-    result = _run_core(db, llm, run_dir)
+    result = _run_core(db, llm, run_dir, send_ranking=True)
     if result is None:
         return None
 

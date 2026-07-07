@@ -150,6 +150,42 @@ def publish() -> None:
         typer.echo(f"[{o.status}] script_id={o.script_id} {o.detail}")
 
 
+db_app = typer.Typer(help="studio.db のR2バックアップ/復元（M5-3a ネタストック永続化）")
+app.add_typer(db_app, name="db")
+
+
+@db_app.command("backup")
+def db_backup() -> None:
+    """studio.db をR2へバックアップする（run終了時に呼ぶ）。"""
+    from studio.publisher.r2 import upload_db
+    from studio.shared.config import settings
+
+    if not settings.db_path.exists():
+        typer.echo("[skip] studio.db がまだ存在しません。")
+        return
+    upload_db(settings.db_path)
+    typer.echo("[ok] studio.db をR2へバックアップしました。")
+
+
+@db_app.command("restore")
+def db_restore(
+    if_missing: bool = typer.Option(
+        False, "--if-missing", help="ローカルにDBがある場合は何もしない（キャッシュ復元後用）"
+    ),
+) -> None:
+    """R2のバックアップから studio.db を復元する。"""
+    from studio.publisher.r2 import download_db
+    from studio.shared.config import settings
+
+    if if_missing and settings.db_path.exists():
+        typer.echo("[skip] studio.db は既に存在します（キャッシュ復元済み）。")
+        return
+    if download_db(settings.db_path):
+        typer.echo("[ok] R2のバックアップから studio.db を復元しました。")
+    else:
+        typer.echo("[skip] R2にバックアップがまだありません。新規DBで開始します。")
+
+
 @app.command()
 def analyze() -> None:
     """週次分析→prompt_insights更新（M5で実装）。"""

@@ -48,6 +48,35 @@ def upload_video(file_path: Path, key: str) -> str:
     )
 
 
+DB_BACKUP_KEY = "db/studio.db"
+
+
+def upload_db(db_path: Path) -> None:
+    """studio.db をR2へバックアップする（M5-3a）。
+
+    Actionsキャッシュは7日未使用で消える揮発ストレージのため、ネタストックの
+    資産化にはR2への永続バックアップが必要。
+    """
+    if not settings.r2_bucket:
+        raise R2NotConfigured("R2_BUCKET が未設定です")
+    _client().upload_file(str(db_path), settings.r2_bucket, DB_BACKUP_KEY)
+
+
+def download_db(dest: Path) -> bool:
+    """R2のバックアップから studio.db を復元する。バックアップが無ければFalse。"""
+    if not settings.r2_bucket:
+        raise R2NotConfigured("R2_BUCKET が未設定です")
+    client = _client()
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        client.download_file(settings.r2_bucket, DB_BACKUP_KEY, str(dest))
+    except client.exceptions.ClientError as e:
+        if e.response.get("Error", {}).get("Code") in ("404", "NoSuchKey"):
+            return False
+        raise
+    return True
+
+
 def download_video(key: str, dest: Path) -> None:
     """R2から動画をダウンロードする。
 

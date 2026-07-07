@@ -1,51 +1,64 @@
-"""候補の一括LLM採点（SPEC 7章 Stage 1）。
+"""候補の一括LLM採点（SPEC 7章 Stage 1 + M5-3a 3軸化）。
 
-評価観点: 「一般日本人視聴者へのインパクト」「一文で言える意外性」「生活・仕事への影響」。
+評価軸: キャッチーさ(フック性)・インパクト(意外性/規模)・有用さ(視聴者の実益)。
+加重合計をランキングのソートキー(topics.relevance_score)に使う。
 1回の呼び出しでまとめて採点する（コスト最適化）。
 """
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, model_validator
+from dataclasses import dataclass
+
+from pydantic import BaseModel, Field
 
 from ..shared.llm import LLMClient
 from .sources import Candidate
 
+# 加重: TikTokはスクロールを止めさせることが最優先のためキャッチーさを最重視
+WEIGHT_CATCHY = 0.4
+WEIGHT_IMPACT = 0.3
+WEIGHT_USEFUL = 0.3
+
 SYSTEM_PROMPT = (
     "あなたはAI産業ニュースを扱う縦型ショート動画番組の編集者です。"
-    "与えられた候補それぞれを0〜100点の単一スコアで採点してください。"
-    "評価観点(内部で考慮するだけでよく、内訳をJSONに含めないこと): "
-    "(1)一般日本人視聴者へのインパクト (2)一文で言える意外性 (3)生活・仕事への影響。"
+    "与えられた候補それぞれを次の3軸で0〜100点採点してください: "
+    "(1)catchy: キャッチーさ。冒頭1文でスクロールの指を止められるフックが作れるか"
+    "(具体的な数字・意外な事実があるほど高い) "
+    "(2)impact: インパクト。業界・社会への影響の大きさや意外性 "
+    "(3)useful: 有用さ。一般日本人視聴者の生活・仕事にどれだけ実益があるか。"
     "出力は指定されたJSONスキーマに厳密に従うこと。"
-    'キーは index と relevance_score の2つのみ。他のキー(impact/novelty/total等)は'
-    "絶対に追加しないこと。"
+    "キーは index・catchy・impact・useful の4つのみ。他のキーは絶対に追加しないこと。"
 )
-
-# 実際のLLM応答で relevance_score の代わりに使われがちな別名（フォールバック用）
-_SCORE_ALIASES = ("relevance_score", "total", "score", "overall", "overall_score")
 
 
 class _ScoredIndex(BaseModel):
     index: int
-    relevance_score: float = Field(ge=0, le=100)
-
-    @model_validator(mode="before")
-    @classmethod
-    def _accept_alias_keys(cls, data):
-        if isinstance(data, dict) and "relevance_score" not in data:
-            for alias in _SCORE_ALIASES:
-                if alias in data:
-                    data = {**data, "relevance_score": data[alias]}
-                    break
-        return data
+    catchy: float = Field(ge=0, le=100)
+    impact: float = Field(ge=0, le=100)
+    useful: float = Field(ge=0, le=100)
 
 
 class _ScoringResult(BaseModel):
     scores: list[_ScoredIndex]
 
 
-def score_candidates(llm: LLMClient, candidates: list[Candidate]) -> list[float]:
-    """candidates と同じ長さのスコア配列を返す（未採点は0点）。"""
+@dataclass
+class TopicScore:
+    catchy: float
+    impact: float
+    useful: float
+
+    @property
+    def total(self) -> float:
+        return (
+            WEIGHT_CATCHY * self.catchy
+            + WEIGHT_IMPACT * self.impact
+            + WEIGHT_USEFUL * self.useful
+        )
+
+
+def score_candidates(llm: LLMClient, candidates: list[Candidate]) -> list[TopicScore]:
+    """candidates と同じ長さのスコア配列を返す（未採点は全軸0点）。"""
     if not candidates:
         return []
     listing = "\n".join(
@@ -53,7 +66,8 @@ def score_candidates(llm: LLMClient, candidates: list[Candidate]) -> list[float]
     )
     user = (
         f"候補一覧(index: タイトル — 概要):\n{listing}\n\n"
-        '出力形式(JSONのみ): {"scores": [{"index": 0, "relevance_score": 87.0}, ...]}\n'
+        '出力形式(JSONのみ): {"scores": [{"index": 0, "catchy": 80.0, "impact": 70.0, '
+        '"useful": 60.0}, ...]}\n'
         "全候補ぶん出力すること。"
     )
     result = llm.complete_json(
@@ -61,10 +75,10 @@ def score_candidates(llm: LLMClient, candidates: list[Candidate]) -> list[float]
         system=SYSTEM_PROMPT,
         user=user,
         schema=_ScoringResult,
-        max_tokens=2048,
+        max_tokens=3000,
     )
-    scores = [0.0] * len(candidates)
+    scores = [TopicScore(0.0, 0.0, 0.0)] * len(candidates)
     for sc in result.scores:
         if 0 <= sc.index < len(candidates):
-            scores[sc.index] = sc.relevance_score
+            scores[sc.index] = TopicScore(catchy=sc.catchy, impact=sc.impact, useful=sc.useful)
     return scores

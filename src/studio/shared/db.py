@@ -14,12 +14,12 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS topics (
     id INTEGER PRIMARY KEY,
     source_url TEXT NOT NULL,
-    source_type TEXT NOT NULL,        -- arxiv | rss | hn
+    source_type TEXT NOT NULL,        -- arxiv | rss | hn | manual
     title TEXT NOT NULL,
     summary TEXT,
     collected_at TEXT NOT NULL,
-    relevance_score REAL,
-    status TEXT DEFAULT 'new'         -- new | scripted | skipped
+    relevance_score REAL,             -- 3軸の加重合計（ランキングのソートキー）
+    status TEXT DEFAULT 'new'         -- new(ストック) | scripted | skipped | expired
 );
 
 CREATE TABLE IF NOT EXISTS scripts (
@@ -73,6 +73,23 @@ CREATE TABLE IF NOT EXISTS oauth_tokens (
 """
 
 
+# 既存DBへ追加するtopicsの3軸スコア列（M5-3a ネタストック化）。
+# relevance_score は加重合計として引き続きソートキーに使う。
+_TOPIC_SCORE_COLUMNS = ("catchy_score", "impact_score", "useful_score")
+
+# ネタストックの鮮度規則（M5-3a）: 収集後 GRACE 日は満点、以降1日ごとに DECAY 点減点、
+# EXPIRE 日を超えた 'new' は自動失効させる（AIニュースの鮮度優先）。
+STOCK_GRACE_DAYS = 3
+STOCK_DECAY_PER_DAY = 2.0
+STOCK_EXPIRE_DAYS = 30
+
+# 鮮度減衰後の実効スコア（julianday はISO8601文字列を直接受け付ける）
+_EFFECTIVE_SCORE_SQL = (
+    f"relevance_score - {STOCK_DECAY_PER_DAY} * "
+    f"MAX(0, julianday('now') - julianday(collected_at) - {STOCK_GRACE_DAYS})"
+)
+
+
 def now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -85,7 +102,15 @@ class Database:
         self.conn = sqlite3.connect(path)
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(SCHEMA)
+        self._migrate()
         self.conn.commit()
+
+    def _migrate(self) -> None:
+        """既存DBに後付け列を足す（CREATE TABLE IF NOT EXISTS では既存DBに反映されないため）。"""
+        existing = {r["name"] for r in self.conn.execute("PRAGMA table_info(topics)")}
+        for col in _TOPIC_SCORE_COLUMNS:
+            if col not in existing:
+                self.conn.execute(f"ALTER TABLE topics ADD COLUMN {col} REAL")
 
     def close(self) -> None:
         self.conn.close()
@@ -100,14 +125,56 @@ class Database:
         title: str,
         summary: str | None,
         relevance_score: float | None = None,
+        catchy_score: float | None = None,
+        impact_score: float | None = None,
+        useful_score: float | None = None,
     ) -> int:
         cur = self.conn.execute(
             "INSERT INTO topics (source_url, source_type, title, summary, collected_at, "
-            "relevance_score) VALUES (?, ?, ?, ?, ?, ?)",
-            (source_url, source_type, title, summary, now_iso(), relevance_score),
+            "relevance_score, catchy_score, impact_score, useful_score) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                source_url,
+                source_type,
+                title,
+                summary,
+                now_iso(),
+                relevance_score,
+                catchy_score,
+                impact_score,
+                useful_score,
+            ),
         )
         self.conn.commit()
         return int(cur.lastrowid)
+
+    def topic_url_known(self, source_url: str) -> bool:
+        """同一URLのネタが(状態を問わず)既にあるか。日次収集の重複ストックを防ぐ。"""
+        row = self.conn.execute(
+            "SELECT 1 FROM topics WHERE source_url = ? LIMIT 1", (source_url,)
+        ).fetchone()
+        return row is not None
+
+    def expire_stale_topics(self) -> int:
+        """鮮度切れ(STOCK_EXPIRE_DAYS超)の 'new' を失効させ、件数を返す。"""
+        cur = self.conn.execute(
+            "UPDATE topics SET status = 'expired' WHERE status = 'new' "
+            f"AND julianday('now') - julianday(collected_at) > {STOCK_EXPIRE_DAYS}"
+        )
+        self.conn.commit()
+        return cur.rowcount
+
+    def stock_ranking(self, limit: int) -> list[sqlite3.Row]:
+        """ストック('new')を鮮度減衰後の実効スコア降順で返す。
+
+        行には effective_score 列が付く。ランキング配信・当日ネタ選定の両方で使う。
+        """
+        return self.conn.execute(
+            f"SELECT *, {_EFFECTIVE_SCORE_SQL} AS effective_score FROM topics "
+            "WHERE status = 'new' AND relevance_score IS NOT NULL "
+            "ORDER BY effective_score DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
 
     def set_topic_status(self, topic_id: int, status: str) -> None:
         self.conn.execute("UPDATE topics SET status = ? WHERE id = ?", (status, topic_id))
@@ -118,13 +185,6 @@ class Database:
         if row is None:
             raise KeyError(f"topic id={topic_id} が見つかりません")
         return row
-
-    def top_new_topics(self, limit: int) -> list[sqlite3.Row]:
-        return self.conn.execute(
-            "SELECT * FROM topics WHERE status = 'new' "
-            "ORDER BY relevance_score DESC NULLS LAST LIMIT ?",
-            (limit,),
-        ).fetchall()
 
     # --- scripts ---------------------------------------------------------
 

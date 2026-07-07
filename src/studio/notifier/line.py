@@ -151,3 +151,70 @@ def push_text_message(text: str) -> None:
 def notify_publish_complete(*, script: Script, publish_id: str) -> None:
     text = f"[{script.corner}] {script.hook}\nTikTokの下書きに送信しました(publish_id={publish_id})"
     push_text_message(text)
+
+
+def build_ranking_flex(rows: list) -> dict:
+    """ネタストック上位のランキングFlex（M5-3b）。
+
+    rows は db.stock_ranking() の行（effective_score付きsqlite3.Row）。
+    """
+    items: list[dict] = []
+    for rank, r in enumerate(rows, start=1):
+        title = r["title"] if len(r["title"]) <= 40 else r["title"][:39] + "…"
+        items.append(
+            {
+                "type": "box",
+                "layout": "vertical",
+                "spacing": "none",
+                "margin": "md",
+                "contents": [
+                    {
+                        "type": "text",
+                        "text": f"{rank}. {title}",
+                        "size": "sm",
+                        "weight": "bold",
+                        "wrap": True,
+                        "action": {"type": "uri", "label": "開く", "uri": r["source_url"]},
+                    },
+                    {
+                        "type": "text",
+                        "text": (
+                            f"{r['effective_score']:.0f}点 "
+                            f"(キャッチー{r['catchy_score'] or 0:.0f}/"
+                            f"インパクト{r['impact_score'] or 0:.0f}/"
+                            f"有用{r['useful_score'] or 0:.0f})"
+                        ),
+                        "size": "xs",
+                        "color": "#888888",
+                    },
+                ],
+            }
+        )
+    bubble = {
+        "type": "bubble",
+        "header": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": f"今日のネタストック TOP{len(rows)}",
+                    "weight": "bold",
+                    "size": "md",
+                }
+            ],
+        },
+        "body": {"type": "box", "layout": "vertical", "contents": items},
+    }
+    return {
+        "type": "flex",
+        "altText": f"ネタストック TOP{len(rows)}",
+        "contents": bubble,
+    }
+
+
+def notify_topic_ranking(rows: list) -> None:
+    """ストック上位をLINEに配信する。ストックが空なら送らない。"""
+    if not rows:
+        return
+    push_flex_message(build_ranking_flex(rows))

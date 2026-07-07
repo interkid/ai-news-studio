@@ -194,10 +194,16 @@ def _extract_field(user_text: str, label: str) -> str | None:
 
 
 def _dry_run_collector_score(user_text: str) -> str:
-    """候補一覧(各行 'index: title — summary')から、順位に応じた固定スコアを返す。"""
+    """候補一覧(各行 'index: title — summary')から、順位に応じた固定3軸スコアを返す。"""
     indices = re.findall(r"^(\d+):", user_text, re.MULTILINE)
     scores = [
-        {"index": int(i), "relevance_score": max(40.0, 95.0 - int(i) * 3)} for i in indices
+        {
+            "index": int(i),
+            "catchy": max(45.0, 95.0 - int(i) * 3),
+            "impact": max(45.0, 90.0 - int(i) * 3),
+            "useful": max(45.0, 85.0 - int(i) * 3),
+        }
+        for i in indices
     ]
     return json.dumps({"scores": scores})
 
