@@ -46,7 +46,9 @@ AIニュース・論文を **垂れ耳解説うさぎ×白い聞き役うさぎ*
 （2026-07-05: LLM日次呼び出し上限の消費を抑えるため3案→2案に変更）
 TTS・画像生成・レンダは**選ばれた1案のみ**に実行。実測尺が25秒超なら次点へフォールバック。
 
-- **daily.yml** (`studio pipeline`): 収集→台本→音声→レンダ→採点→承認依頼
+- **daily.yml** (`studio pipeline`): 収集(ネタストック更新+LINEランキングTOP10配信)→台本→音声→レンダ→採点→承認依頼
+  （2026-07-08: ネタは3軸採点(キャッチー/インパクト/有用)で全件ストックし、鮮度減衰込みの
+  ストック全体ランキングから当日の1本を選ぶ。DBは run 終了時にR2へバックアップ）
 - **publish.yml** (`studio publish`, 15分間隔): KVで承認検知→TikTokドラフト送信→LINE完了通知
 - **weekly.yml** (`studio analyze`): 成績分析→`prompt_insights` 更新→翌週の台本プロンプトへ反映
 
@@ -84,8 +86,10 @@ TTS・画像生成・レンダは**選ばれた1案のみ**に実行。実測尺
   GitHub Actionsの自動実行(cron)は**引き続き意図的に無効**（`workflow_dispatch`のみ有効）。
   動画の品質チェック（M5）が済むまで無人自動投稿はONにしない方針。
 - M5進行中: キャラ刷新完了（うさぎペア・ピクサー調3DCG・11状態、`assets/characters/`にコミット済み）、
-  ビート構成テンプレ+文字数リペア実装済み。残り = layoutのロゴ/バッジ刷新・演出バリエーション・
-  ネタ事前レビュー（詳細は `NEXT_STEPS.md`）。
+  ビート構成テンプレ+文字数リペア実装済み。ネタストック（3軸採点・鮮度減衰・R2 DBバックアップ・
+  LINEランキングTOP10配信）実装済み・CI検証済み（2026-07-08）。
+  残り = 演出バリエーション → LINEからの手動ストック → ランキングからの選択生成ボタン、
+  layoutのロゴ/バッジ刷新（詳細は `NEXT_STEPS.md`）。
 - 設定済み: `ANTHROPIC_API_KEY` / `FAL_KEY` / `LINE_*` / `R2_*` / `CF_*` / `TIKTOK_*`（ローカル`.env`と
   GitHub Secretsの両方。Secretsがローカルと食い違って落ちた前例あり→`.env`正としてAPIで同期する）。
   Cloudflare Worker(`workers/approval/`)は `ai-news-studio-approval.ai-news-studio.workers.dev` にデプロイ済み。
