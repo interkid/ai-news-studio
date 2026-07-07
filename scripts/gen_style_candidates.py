@@ -17,10 +17,16 @@ from studio.shared.config import settings
 FAL_ENDPOINT = "https://fal.run/fal-ai/nano-banana-pro"
 
 BASE_PROMPT = (
-    "An orange fox character (confident news presenter) and a white rabbit character "
-    "(curious cheerful listener) standing side by side, full body, facing the viewer, "
-    "friendly expressions, simple plain light background, no text, no logos, "
-    "vertical composition. Characters for a Japanese short-video news show. "
+    "An original mascot duo for a Japanese short-video news show: an orange fox "
+    "news presenter with chibi proportions (about 2.5 heads tall), round friendly "
+    "face, big round eyes, wearing small round glasses, a red bow tie and a navy "
+    "news-anchor vest; and a soft cream-white rabbit listener with chibi "
+    "proportions, big sparkling eyes, rosy cheeks, wearing a small yellow "
+    "neckerchief. Standing side by side, full body, facing the viewer, friendly "
+    "expressions, simple plain light background, no text, no logos, vertical "
+    "composition. Completely original character designs, must NOT resemble any "
+    "existing movie or anime characters (especially NOT Zootopia's Nick Wilde or "
+    "Judy Hopps: different proportions, different outfits, different face shapes). "
     "Clearly stylized cartoon animals, NOT photorealistic, not a real photograph. "
 )
 
@@ -64,7 +70,7 @@ def generate(style_name: str, style_prompt: str) -> None:
     image_url = data["images"][0]["url"]
     img = httpx.get(image_url, timeout=60.0)
     img.raise_for_status()
-    out = OUT_DIR / f"{style_name}.png"
+    out = OUT_DIR / f"{style_name}_v2.png"
     out.write_bytes(img.content)
     print(f"OK {style_name}: {out} ({len(img.content)} bytes)")
 
