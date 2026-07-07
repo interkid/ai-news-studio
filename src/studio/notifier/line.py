@@ -19,7 +19,7 @@ class LineNotConfigured(RuntimeError):
 
 
 def _speaker_label(speaker: str) -> str:
-    return "きつね" if speaker == "fox" else "うさぎ"
+    return "解説うさぎ" if speaker == "fox" else "聞き役うさぎ"
 
 
 def build_flex_message(

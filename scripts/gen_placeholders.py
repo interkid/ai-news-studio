@@ -177,6 +177,12 @@ def make_badge(label: str) -> Image.Image:
 # --- 実行 --------------------------------------------------------------------
 
 
+def _save_if_missing(img: Image.Image, path: Path) -> None:
+    """本番素材(コミット済み)がある場合は上書きしない。"""
+    if not path.exists():
+        img.save(path)
+
+
 def main() -> None:
     (CHAR / "fox").mkdir(parents=True, exist_ok=True)
     (CHAR / "rabbit").mkdir(parents=True, exist_ok=True)
@@ -190,19 +196,20 @@ def main() -> None:
     for kind, vs in variants.items():
         manifest[kind] = {}
         for v in vs:
-            draw_char(kind, v).save(CHAR / kind / f"{v}.png")
+            _save_if_missing(draw_char(kind, v), CHAR / kind / f"{v}.png")
             manifest[kind][v] = f"{kind}/{v}.png"
-    (CHAR / "manifest.json").write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    if not (CHAR / "manifest.json").exists():
+        (CHAR / "manifest.json").write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
-    make_bg().save(LAYOUT / "bg.png")
-    make_broll().save(LAYOUT / "broll_placeholder.png")
-    make_logo().save(LAYOUT / "logo.png")
+    _save_if_missing(make_bg(), LAYOUT / "bg.png")
+    _save_if_missing(make_broll(), LAYOUT / "broll_placeholder.png")
+    _save_if_missing(make_logo(), LAYOUT / "logo.png")
     for corner, label in CORNERS.items():
-        make_badge(label).save(LAYOUT / f"badge_{corner}.png")
+        _save_if_missing(make_badge(label), LAYOUT / f"badge_{corner}.png")
 
-    print("[ok] placeholders generated under assets/")
+    print("[ok] placeholders generated under assets/ (existing files kept)")
 
 
 if __name__ == "__main__":

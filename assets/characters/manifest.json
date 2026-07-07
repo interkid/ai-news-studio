@@ -1,0 +1,17 @@
+{
+  "fox": {
+    "normal": "fox/normal.png",
+    "surprised": "fox/surprised.png",
+    "smug": "fox/smug.png",
+    "worried": "fox/worried.png",
+    "mouth_open": "fox/mouth_open.png",
+    "mouth_closed": "fox/mouth_closed.png"
+  },
+  "rabbit": {
+    "normal": "rabbit/normal.png",
+    "surprised": "rabbit/surprised.png",
+    "curious": "rabbit/curious.png",
+    "mouth_open": "rabbit/mouth_open.png",
+    "mouth_closed": "rabbit/mouth_closed.png"
+  }
+}
