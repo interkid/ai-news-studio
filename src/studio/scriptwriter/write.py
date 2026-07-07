@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 
 from ..shared.db import Database
@@ -14,15 +15,21 @@ from ..shared.models import Script
 from .factcheck import FactCheckResult, fact_check
 from .generate import TopicInput, generate_variants
 
+logger = logging.getLogger(__name__)
+
 
 def _persist_round(
     db: Database, topic_id: int, llm: LLMClient, variants: list[Script]
 ) -> tuple[list[int], list[FactCheckResult]]:
     passed_ids: list[int] = []
     results: list[FactCheckResult] = []
-    for v in variants:
+    for i, v in enumerate(variants):
         r = fact_check(llm, v)
         results.append(r)
+        if not r.passed:
+            logger.warning(
+                "台本案%d ファクト検証不合格: %s (hook=%r)", i, r.notes, v.hook
+            )
         sid = db.insert_script(
             topic_id=topic_id,
             corner=v.corner,
