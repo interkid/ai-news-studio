@@ -23,9 +23,7 @@ def get_video_approval(video_id: int) -> dict | None:
     戻り値の例: {"status": "approved"} / {"status": "rejected", "reason": "..."}
     """
     if not (settings.r2_account_id and settings.cf_kv_namespace_id and settings.cf_api_token):
-        raise KVNotConfigured(
-            "R2_ACCOUNT_ID / CF_KV_NAMESPACE_ID / CF_API_TOKEN が未設定です"
-        )
+        raise KVNotConfigured("R2_ACCOUNT_ID / CF_KV_NAMESPACE_ID / CF_API_TOKEN が未設定です")
     url = (
         f"{KV_API_BASE}/accounts/{settings.r2_account_id}/storage/kv/namespaces/"
         f"{settings.cf_kv_namespace_id}/values/video:{video_id}"

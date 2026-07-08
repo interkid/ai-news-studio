@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS topics (
     summary TEXT,
     collected_at TEXT NOT NULL,
     relevance_score REAL,             -- 3軸の加重合計（ランキングのソートキー）
+    category TEXT,                    -- ジャンル(shared/genres.py の GENRES)。NULL=未分類(旧データ)
     status TEXT DEFAULT 'new'         -- new(ストック) | scripted | skipped | expired
 );
 
@@ -111,6 +112,8 @@ class Database:
         for col in _TOPIC_SCORE_COLUMNS:
             if col not in existing:
                 self.conn.execute(f"ALTER TABLE topics ADD COLUMN {col} REAL")
+        if "category" not in existing:  # M5-3e ジャンル週間ローテ
+            self.conn.execute("ALTER TABLE topics ADD COLUMN category TEXT")
 
     def close(self) -> None:
         self.conn.close()
@@ -128,11 +131,12 @@ class Database:
         catchy_score: float | None = None,
         impact_score: float | None = None,
         useful_score: float | None = None,
+        category: str | None = None,
     ) -> int:
         cur = self.conn.execute(
             "INSERT INTO topics (source_url, source_type, title, summary, collected_at, "
-            "relevance_score, catchy_score, impact_score, useful_score) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "relevance_score, catchy_score, impact_score, useful_score, category) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 source_url,
                 source_type,
@@ -143,6 +147,7 @@ class Database:
                 catchy_score,
                 impact_score,
                 useful_score,
+                category,
             ),
         )
         self.conn.commit()
@@ -175,6 +180,27 @@ class Database:
             "ORDER BY effective_score DESC LIMIT ?",
             (limit,),
         ).fetchall()
+
+    def stock_ranking_by_category(self, category: str, limit: int) -> list[sqlite3.Row]:
+        """指定ジャンルのストックを実効スコア降順で返す（曜日ローテの当日枠選抜用）。"""
+        return self.conn.execute(
+            f"SELECT *, {_EFFECTIVE_SCORE_SQL} AS effective_score FROM topics "
+            "WHERE status = 'new' AND relevance_score IS NOT NULL AND category = ? "
+            "ORDER BY effective_score DESC LIMIT ?",
+            (category, limit),
+        ).fetchall()
+
+    def topics_missing_category(self, limit: int = 200) -> list[sqlite3.Row]:
+        """ジャンル未分類のストック（M5-3e導入前の旧データ）。collector実行時に後付け分類する。"""
+        return self.conn.execute(
+            "SELECT id, title, summary FROM topics "
+            "WHERE status = 'new' AND category IS NULL LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+    def set_topic_category(self, topic_id: int, category: str) -> None:
+        self.conn.execute("UPDATE topics SET category = ? WHERE id = ?", (category, topic_id))
+        self.conn.commit()
 
     def set_topic_status(self, topic_id: int, status: str) -> None:
         self.conn.execute("UPDATE topics SET status = ? WHERE id = ?", (status, topic_id))
@@ -267,9 +293,7 @@ class Database:
         ).fetchone()
 
     def set_video_r2_url(self, script_id: int, r2_url: str) -> None:
-        self.conn.execute(
-            "UPDATE videos SET r2_url = ? WHERE script_id = ?", (r2_url, script_id)
-        )
+        self.conn.execute("UPDATE videos SET r2_url = ? WHERE script_id = ?", (r2_url, script_id))
         self.conn.commit()
 
     def set_video_approval_status(

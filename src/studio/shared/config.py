@@ -41,6 +41,11 @@ class Settings(BaseSettings):
             "https://openai.com/news/rss.xml",
             "https://deepmind.google/blog/rss.xml",
             "https://ainow.ai/feed/",
+            # M5-3e: テック更新(tech_update)・効率化事例(workflow_case)ジャンルの供給源
+            # （2026-07-08 疎通確認済み。ジャンル分類自体はLLMが行う）
+            "https://blog.google/technology/ai/rss/",
+            "https://zenn.dev/topics/ai/feed",
+            "https://qiita.com/tags/ai/feed",
         ]
     )
 

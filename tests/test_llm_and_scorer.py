@@ -57,9 +57,7 @@ def test_daily_limit_exceeded_stops_calls(tmp_path):
     db = _make_db(tmp_path)
     llm = LLMClient(db, MockProvider({"p": '{"a": 1}'}))
     for _ in range(3):
-        db.log_llm_usage(
-            purpose="p", model="m", input_tokens=1, output_tokens=1, est_cost_jpy=0.0
-        )
+        db.log_llm_usage(purpose="p", model="m", input_tokens=1, output_tokens=1, est_cost_jpy=0.0)
     from studio.shared.config import settings
 
     original = settings.daily_llm_call_limit
@@ -100,9 +98,7 @@ def test_select_script_picks_highest_score_and_rejects_rest(tmp_path):
     winner = select_script(db, llm, ids)
     assert winner == ids[1]
 
-    statuses = {
-        r["id"]: r["status"] for r in db.conn.execute("SELECT id, status FROM scripts")
-    }
+    statuses = {r["id"]: r["status"] for r in db.conn.execute("SELECT id, status FROM scripts")}
     assert statuses[ids[1]] == "selected"
     assert statuses[ids[0]] == "rejected"
     assert statuses[ids[2]] == "rejected"

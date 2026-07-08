@@ -103,9 +103,7 @@ def build_flex_message(
 
 def push_flex_message(flex: dict) -> None:
     if not (settings.line_channel_access_token and settings.line_admin_user_id):
-        raise LineNotConfigured(
-            "LINE_CHANNEL_ACCESS_TOKEN / LINE_ADMIN_USER_ID が未設定です"
-        )
+        raise LineNotConfigured("LINE_CHANNEL_ACCESS_TOKEN / LINE_ADMIN_USER_ID が未設定です")
     resp = httpx.post(
         LINE_PUSH_ENDPOINT,
         headers={
@@ -133,9 +131,7 @@ def notify_for_approval(
 
 def push_text_message(text: str) -> None:
     if not (settings.line_channel_access_token and settings.line_admin_user_id):
-        raise LineNotConfigured(
-            "LINE_CHANNEL_ACCESS_TOKEN / LINE_ADMIN_USER_ID が未設定です"
-        )
+        raise LineNotConfigured("LINE_CHANNEL_ACCESS_TOKEN / LINE_ADMIN_USER_ID が未設定です")
     resp = httpx.post(
         LINE_PUSH_ENDPOINT,
         headers={
@@ -153,10 +149,19 @@ def notify_publish_complete(*, script: Script, publish_id: str) -> None:
     push_text_message(text)
 
 
-def build_ranking_flex(rows: list) -> dict:
-    """ネタストック上位のランキングFlex（M5-3b）。
+def build_ranking_flex(
+    rows: list,
+    *,
+    genre_label: str | None = None,
+    tomorrow_label: str | None = None,
+    fallback: bool = False,
+) -> dict:
+    """ネタストック上位のランキングFlex（M5-3b + M5-3e 曜日ローテ対応）。
 
-    rows は db.stock_ranking() の行（effective_score付きsqlite3.Row）。
+    rows は db.stock_ranking()/stock_ranking_by_category() の行
+    （effective_score付きsqlite3.Row）。genre_label があれば「今日のジャンル」見出しに、
+    tomorrow_label があれば明日の予告（手動ストック誘導）を末尾に付ける。
+    fallback=True は当日ジャンルの在庫が無く全体ランキングで代替したことを示す。
     """
     items: list[dict] = []
     for rank, r in enumerate(rows, start=1):
@@ -190,31 +195,57 @@ def build_ranking_flex(rows: list) -> dict:
                 ],
             }
         )
+    if genre_label:
+        title = f"今日のジャンル: {genre_label} TOP{len(rows)}"
+    else:
+        title = f"今日のネタストック TOP{len(rows)}"
+    header_contents: list[dict] = [
+        {"type": "text", "text": title, "weight": "bold", "size": "md", "wrap": True}
+    ]
+    if fallback:
+        header_contents.append(
+            {
+                "type": "text",
+                "text": "※当日ジャンルの在庫が無いため全体ランキングで代替",
+                "size": "xs",
+                "color": "#B71C1C",
+                "wrap": True,
+            }
+        )
+    if tomorrow_label:
+        items.append(
+            {
+                "type": "text",
+                "text": f"明日のジャンル: {tomorrow_label}",
+                "size": "xs",
+                "color": "#888888",
+                "margin": "lg",
+            }
+        )
     bubble = {
         "type": "bubble",
-        "header": {
-            "type": "box",
-            "layout": "vertical",
-            "contents": [
-                {
-                    "type": "text",
-                    "text": f"今日のネタストック TOP{len(rows)}",
-                    "weight": "bold",
-                    "size": "md",
-                }
-            ],
-        },
+        "header": {"type": "box", "layout": "vertical", "contents": header_contents},
         "body": {"type": "box", "layout": "vertical", "contents": items},
     }
     return {
         "type": "flex",
-        "altText": f"ネタストック TOP{len(rows)}",
+        "altText": title,
         "contents": bubble,
     }
 
 
-def notify_topic_ranking(rows: list) -> None:
+def notify_topic_ranking(
+    rows: list,
+    *,
+    genre_label: str | None = None,
+    tomorrow_label: str | None = None,
+    fallback: bool = False,
+) -> None:
     """ストック上位をLINEに配信する。ストックが空なら送らない。"""
     if not rows:
         return
-    push_flex_message(build_ranking_flex(rows))
+    push_flex_message(
+        build_ranking_flex(
+            rows, genre_label=genre_label, tomorrow_label=tomorrow_label, fallback=fallback
+        )
+    )

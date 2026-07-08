@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .collector.collect import run as collect_run
+from .collector.collect import todays_top
 from .imagegen.pipeline import generate_brolls
 from .notifier.line import notify_for_approval, notify_topic_ranking
 from .publisher.r2 import upload_video
@@ -20,6 +21,7 @@ from .renderer.render import render_script_object
 from .scorer.score import append_note, select_script
 from .scriptwriter.write import write_scripts
 from .shared.db import Database
+from .shared.genres import genre_for_tomorrow, label_for
 from .shared.llm import LLMClient
 from .shared.models import Script
 from .tts.synthesize import synthesize_script
@@ -49,20 +51,26 @@ def _ranked_script_ids(db: Database, script_ids: list[int]) -> list[int]:
     return [r["id"] for r in rows]
 
 
-RANKING_DIGEST_SIZE = 10
+RANKING_DIGEST_SIZE = 3  # 当日ジャンルのTOP3（M5-3e 曜日ローテ）
 
 
 def _run_core(
     db: Database, llm: LLMClient, run_dir: Path, *, send_ranking: bool = False
 ) -> PipelineResult | None:
     """Stage1〜4を実行し、選出動画を作る（Stage6は呼び出し側の責務）。"""
-    # Stage 1: 収集（ネタストック更新 + ストック全体ランキング）
-    topic_ids = collect_run(db, llm, top_n=3)
+    # Stage 1: 収集（ネタストック更新 + 当日ジャンルのTOP3選抜）
+    topic_ids = collect_run(db, llm, top_n=RANKING_DIGEST_SIZE)
 
-    # M5-3b: ストック上位をLINEに配信（配信失敗でパイプラインは止めない）
+    # M5-3b/3e: 当日ジャンルのTOP3をLINEに配信（配信失敗でパイプラインは止めない）
     if send_ranking:
         try:
-            notify_topic_ranking(db.stock_ranking(RANKING_DIGEST_SIZE))
+            genre, rows, fallback = todays_top(db, RANKING_DIGEST_SIZE)
+            notify_topic_ranking(
+                rows,
+                genre_label=label_for(genre),
+                tomorrow_label=label_for(genre_for_tomorrow()),
+                fallback=fallback,
+            )
         except Exception:
             logger.exception("ネタランキングのLINE配信に失敗（続行）")
 

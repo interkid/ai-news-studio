@@ -194,7 +194,12 @@ def _extract_field(user_text: str, label: str) -> str | None:
 
 
 def _dry_run_collector_score(user_text: str) -> str:
-    """候補一覧(各行 'index: title — summary')から、順位に応じた固定3軸スコアを返す。"""
+    """候補一覧(各行 'index: title — summary')から、順位に応じた固定3軸スコアを返す。
+
+    category はジャンル一覧を巡回するダミー（曜日ローテの配線確認用）。
+    """
+    from .genres import GENRES
+
     indices = re.findall(r"^(\d+):", user_text, re.MULTILINE)
     scores = [
         {
@@ -202,10 +207,18 @@ def _dry_run_collector_score(user_text: str) -> str:
             "catchy": max(45.0, 95.0 - int(i) * 3),
             "impact": max(45.0, 90.0 - int(i) * 3),
             "useful": max(45.0, 85.0 - int(i) * 3),
+            "category": GENRES[int(i) % len(GENRES)],
         }
         for i in indices
     ]
     return json.dumps({"scores": scores})
+
+
+def _dry_run_collector_classify(user_text: str) -> str:
+    """旧ストック後付け分類のダミー（全件 hot_news 扱い）。"""
+    indices = re.findall(r"^(\d+):", user_text, re.MULTILINE)
+    items = [{"index": int(i), "category": "hot_news"} for i in indices]
+    return json.dumps({"items": items})
 
 
 def _dry_run_script_json(user_text: str) -> str:
@@ -219,10 +232,18 @@ def _dry_run_script_json(user_text: str) -> str:
         "corner": "paper",
         "hook": "精度94%の衝撃",
         "exchanges": [
-            {"speaker": "fox", "text": "精度94%、AIが医療診断を大きく変えます", "emotion": "surprised"},
+            {
+                "speaker": "fox",
+                "text": "精度94%、AIが医療診断を大きく変えます",
+                "emotion": "surprised",
+            },
             {"speaker": "rabbit", "text": "えっ、お医者さんいらずになるの？", "emotion": "curious"},
             {"speaker": "fox", "text": "画像診断で専門医に並ぶ正答率が出たんだ", "emotion": "smug"},
-            {"speaker": "rabbit", "text": "あなたの健康にも直結する大事な話だね", "emotion": "normal"},
+            {
+                "speaker": "rabbit",
+                "text": "あなたの健康にも直結する大事な話だね",
+                "emotion": "normal",
+            },
         ],
         "brolls": [
             {
@@ -246,7 +267,11 @@ def _dry_run_factcheck(_user_text: str) -> str:
 def _dry_run_scorer(user_text: str) -> str:
     indices = re.findall(r"^\[(\d+)\]", user_text, re.MULTILINE)
     scores = [
-        {"index": int(i), "quality_score": max(40.0, 90.0 - int(i) * 5), "reason": "dry-run固定スコア"}
+        {
+            "index": int(i),
+            "quality_score": max(40.0, 90.0 - int(i) * 5),
+            "reason": "dry-run固定スコア",
+        }
         for i in indices
     ]
     return json.dumps({"scores": scores})
@@ -262,6 +287,7 @@ def _dry_run_responses() -> dict[str, Callable[[str], str]]:
     """
     return {
         "collector_score": _dry_run_collector_score,
+        "collector_classify": _dry_run_collector_classify,
         "scriptwriter_generate": _dry_run_script_json,
         "scriptwriter_factcheck": _dry_run_factcheck,
         "scorer": _dry_run_scorer,

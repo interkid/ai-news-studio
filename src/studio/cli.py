@@ -21,9 +21,7 @@ app.add_typer(auth_app, name="auth")
 def render(
     script: Path = typer.Option(..., "--script", "-s", help="台本JSONのパス", exists=True),
     out: Path = typer.Option(Path("out.mp4"), "--out", "-o", help="出力mp4パス"),
-    preview: bool = typer.Option(
-        False, "--preview", help="低解像度・高速プレビュー（確認用）"
-    ),
+    preview: bool = typer.Option(False, "--preview", help="低解像度・高速プレビュー（確認用）"),
 ) -> None:
     """台本JSONから縦型ショート動画を1本レンダリングする。"""
     from studio.renderer.render import render_script

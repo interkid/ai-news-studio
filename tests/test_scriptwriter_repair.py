@@ -39,9 +39,7 @@ def test_total_length_overflow_is_repaired(tmp_path: Path):
     db = Database(tmp_path / "test.db")
     llm = LLMClient(
         db,
-        MockProvider(
-            {"scriptwriter_generate": _OVERFLOW, "scriptwriter_repair": _REPAIRED}
-        ),
+        MockProvider({"scriptwriter_generate": _OVERFLOW, "scriptwriter_repair": _REPAIRED}),
     )
     variants, errors = generate_variants(llm, _TOPIC, insights=[], n=1)
     assert len(variants) == 1
@@ -54,9 +52,7 @@ def test_failed_repair_skips_variant(tmp_path: Path):
     db = Database(tmp_path / "test.db")
     llm = LLMClient(
         db,
-        MockProvider(
-            {"scriptwriter_generate": _OVERFLOW, "scriptwriter_repair": _OVERFLOW}
-        ),
+        MockProvider({"scriptwriter_generate": _OVERFLOW, "scriptwriter_repair": _OVERFLOW}),
     )
     variants, errors = generate_variants(llm, _TOPIC, insights=[], n=1)
     assert variants == []

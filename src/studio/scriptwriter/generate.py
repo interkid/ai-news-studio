@@ -184,7 +184,9 @@ def generate_variants(
             except ValidationError as e:
                 if not _is_total_length_error(e):
                     raise
-                logger.info("台本案%d 合計文字数が範囲外のためリペア実行: %s", i, e.errors()[0]["msg"])
+                logger.info(
+                    "台本案%d 合計文字数が範囲外のためリペア実行: %s", i, e.errors()[0]["msg"]
+                )
                 script = _repair_total_length(llm, system, raw)
         except ValidationError as e:
             summary = "; ".join(
