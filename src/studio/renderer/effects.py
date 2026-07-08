@@ -1,6 +1,10 @@
 """演出エフェクトライブラリ（SPEC 6章・全動画共通）。
 
-zoom_in / pop_in / shake / flash / slide_in と Ken Burns を関数として提供。
+zoom_in / pop_in / shake / flash / slide_in / drop_slam と Ken Burns を関数として提供。
+M5演出強化: 冒頭インパクト（drop_slam=デカ文字ドロップ+着地シェイク）と、
+emotion 連動の自動選択（speaker_entrance_scale / subtitle_entrance）を追加。
+タイミング計算は純粋関数（slam_kinematics 等）に分離しユニットテスト対象とする。
+
 MoviePy 2.x API（with_position / resized / with_start / with_opacity）で実装。
 scale は resized(func) が元サイズに func(t) を掛ける挙動を利用し、
 中心を固定するために with_position を時間関数で与える。
@@ -104,6 +108,118 @@ def flash(
         .with_start(at)
         .with_opacity(opacity)
     )
+
+
+# ---- M5演出強化: 冒頭インパクト ---------------------------------------------
+
+
+def slam_kinematics(
+    t: float,
+    drop_dur: float = layout.HOOK_DROP_SEC,
+    from_dy: float = layout.HOOK_DROP_FROM_DY,
+    from_scale: float = layout.HOOK_DROP_FROM_SCALE,
+    shake_amp: float = layout.HOOK_SHAKE_AMP,
+    shake_dur: float = layout.HOOK_SHAKE_SEC,
+    shake_freq: float = 22.0,
+) -> tuple[float, float, float]:
+    """デカ文字ドロップの (dx, dy, scale) を返す純粋関数。
+
+    0〜drop_dur: 上方から加速落下しつつ from_scale→1.0 に縮小（デカ文字→着地）。
+    着地後 shake_dur: 減衰シェイク。以降は静止 (0, 0, 1.0)。
+    """
+    if t < drop_dur:
+        u = t / drop_dur
+        e = u * u  # ease-in（自由落下風の加速）
+        return (0.0, from_dy * (1.0 - e), _lerp(from_scale, 1.0, e))
+    ts = t - drop_dur
+    if ts < shake_dur:
+        damp = 1.0 - ts / shake_dur
+        dx = shake_amp * math.sin(2 * math.pi * shake_freq * ts) * damp
+        dy = 0.4 * shake_amp * math.sin(2 * math.pi * shake_freq * 1.3 * ts) * damp
+        return (dx, dy, 1.0)
+    return (0.0, 0.0, 1.0)
+
+
+def drop_slam(
+    clip: Clip,
+    center: Center,
+    drop_dur: float = layout.HOOK_DROP_SEC,
+    from_dy: float = layout.HOOK_DROP_FROM_DY,
+    from_scale: float = layout.HOOK_DROP_FROM_SCALE,
+) -> Clip:
+    """冒頭インパクト演出：デカ文字が落下して着地シェイク（フック既定）。
+
+    着地の瞬間（t=drop_dur）に flash() を重ねる想定。
+    """
+    cx, cy = center
+    base_w, base_h = clip.w, clip.h
+
+    def sf(t: float) -> float:
+        return slam_kinematics(t, drop_dur, from_dy, from_scale)[2]
+
+    scaled = clip.resized(sf)
+
+    def pos(t: float) -> tuple[float, float]:
+        dx, dy, s = slam_kinematics(t, drop_dur, from_dy, from_scale)
+        return (cx - base_w * s / 2 + dx, cy - base_h * s / 2 + dy)
+
+    return scaled.with_position(pos)
+
+
+# ---- M5演出強化: 感情連動の自動選択 ------------------------------------------
+
+
+def speaker_entrance_scale(
+    emotion: str,
+    t_rel: float,
+    base: float = layout.SPEAKER_SCALE_ACTIVE,
+    dur: float = layout.SPEAKER_ENTRANCE_SEC,
+) -> float:
+    """発話開始からの経過時間 t_rel における話者キャラのスケール（純粋関数）。
+
+    surprised: 大きくバウンス（base×0.9→×1.13→base）
+    curious:   小さくバウンス（base×0.95→×1.06→base）
+    smug:      ゆっくりせり上がる（base×0.93→base）
+    それ以外:   base 固定（従来挙動）
+    """
+    if t_rel >= dur:
+        return base
+    u = t_rel / dur
+    if emotion == "surprised":
+        peak = base * 1.13
+        if u < 0.5:
+            return _lerp(base * 0.90, peak, u / 0.5)
+        return _lerp(peak, base, (u - 0.5) / 0.5)
+    if emotion == "curious":
+        peak = base * 1.06
+        if u < 0.5:
+            return _lerp(base * 0.95, peak, u / 0.5)
+        return _lerp(peak, base, (u - 0.5) / 0.5)
+    if emotion == "smug":
+        return _lerp(base * 0.93, base, u)
+    return base
+
+
+def subtitle_effect_name(emotion: str) -> str:
+    """emotion → 字幕登場エフェクト名（純粋関数・テスト対象）。"""
+    return {
+        "surprised": "pop_in",
+        "curious": "pop_in",
+        "smug": "slide_in_right",
+        "worried": "rise_in",
+    }.get(emotion, "slide_in_left")
+
+
+def subtitle_entrance(clip: Clip, center: Center, emotion: str) -> Clip:
+    """emotion に応じた字幕の登場演出を適用する。"""
+    name = subtitle_effect_name(emotion)
+    if name == "pop_in":
+        return pop_in(clip, center, dur=0.3)
+    if name == "slide_in_right":
+        return slide_in(clip, center, dur=0.3, from_dx=80.0)
+    if name == "rise_in":
+        return slide_in(clip, center, dur=0.35, from_dx=0.0, from_dy=50.0)
+    return slide_in(clip, center, dur=0.25, from_dx=-60.0)
 
 
 def ken_burns(

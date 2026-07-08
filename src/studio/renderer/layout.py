@@ -16,8 +16,18 @@ GAP_SEC = 0.25  # セリフ間ギャップ
 TEMPO_MAX_STATIC_SEC = 2.5  # これを超える無変化区間があれば自動ズームを挿入
 TEMPO_MIN_CHANGE_SEC = 1.5  # 目安：1.5〜2.5秒ごとに変化
 MOUTH_FPS = 8  # 口パクの開閉切替レート
-HOOK_INTRO_SEC = 0.5  # 冒頭フックテロップのズームイン尺
 CROSSFADE_SEC = 0.2  # B-roll切替クロスフェード
+
+# --- 冒頭インパクト演出（M5: フック=デカ文字ドロップ+着地シェイク+フラッシュ） ---
+HOOK_DROP_SEC = 0.28  # フックテロップの落下尺（着地＝インパクトの瞬間）
+HOOK_DROP_FROM_DY = -420.0  # 落下開始位置（画面上方向のオフセットpx）
+HOOK_DROP_FROM_SCALE = 1.35  # 落下開始時の拡大率（デカ文字→等倍へ）
+HOOK_SHAKE_SEC = 0.35  # 着地後のシェイク尺
+HOOK_SHAKE_AMP = 16.0  # 着地シェイクの振幅(px)
+
+# --- 感情連動演出（M5: emotion からエフェクトを自動選択） ---
+SPEAKER_ENTRANCE_SEC = 0.35  # 話者登場スケール演出の尺
+SURPRISE_FLASH_OPACITY = 0.35  # surprised セリフ頭の小フラッシュ（フックより控えめ）
 
 # --- Ken Burns ---
 KEN_BURNS_START = 1.0

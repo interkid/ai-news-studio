@@ -96,9 +96,7 @@ def tempo_fill_zooms(gaps: list[tuple[float, float]]) -> list[float]:
     return [round((a + b) / 2, 3) for a, b in gaps]
 
 
-def build_timeline(
-    lines: list[tuple[str, str, float]], broll_starts: list[float]
-) -> Timeline:
+def build_timeline(lines: list[tuple[str, str, float]], broll_starts: list[float]) -> Timeline:
     spans = compute_line_spans(lines)
     total = total_duration(spans)
     events = change_timestamps(spans, broll_starts)

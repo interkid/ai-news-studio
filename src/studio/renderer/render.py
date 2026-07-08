@@ -99,7 +99,8 @@ def _character_layers(tl: Timeline) -> list[ImageClip]:
         clips.append(
             _char_clip(idle, cx, layout.SPEAKER_SCALE_IDLE).with_start(0).with_duration(tl.total)
         )
-        # 発話区間：表情＋口パク（8fpsで mouth_open ↔ 表情フレーム）
+        # 発話区間：表情＋口パク（8fpsで mouth_open ↔ 表情フレーム）。
+        # スケールは emotion 連動の登場演出（surprised=バウンス等）を tick 単位で反映。
         for span in tl.spans:
             if span.speaker != speaker:
                 continue
@@ -112,11 +113,8 @@ def _character_layers(tl: Timeline) -> list[ImageClip]:
                     break
                 is_open = k % 2 == 1
                 img = assets.mouth_image(speaker, True) if is_open else emo_img
-                clips.append(
-                    _char_clip(img, cx, layout.SPEAKER_SCALE_ACTIVE)
-                    .with_start(ts)
-                    .with_duration(td)
-                )
+                scale = effects.speaker_entrance_scale(span.emotion, ts - span.start)
+                clips.append(_char_clip(img, cx, scale).with_start(ts).with_duration(td))
     return clips
 
 
@@ -136,7 +134,7 @@ def _subtitle_layers(script: Script, tl: Timeline) -> list[ImageClip]:
         )
         clip = _pil_to_imageclip(png).with_duration(span.duration)
         center = (layout.WIDTH / 2, layout.SUBTITLE_CENTER_Y)
-        clip = effects.slide_in(clip, center, dur=0.25, from_dx=-60.0)
+        clip = effects.subtitle_entrance(clip, center, span.emotion)
         clips.append(clip.with_start(span.start))
     return clips
 
@@ -146,12 +144,12 @@ def _telop_layers(script: Script, tl: Timeline) -> list[ImageClip]:
     center = (layout.WIDTH / 2, layout.TELOP_CENTER_Y)
     hook_end = min(tl.spans[0].end, 2.5)
 
-    # hook: zoom_in + flash（冒頭0.5秒〜）
+    # hook: デカ文字ドロップ+着地シェイク（フラッシュは _accent_layers で着地に同期）
     hook_png = textgen.telop_png(
         script.hook, size=layout.HOOK_FONT_SIZE, max_width=int(layout.WIDTH * 0.9)
     )
     hook_clip = _pil_to_imageclip(hook_png).with_duration(hook_end)
-    hook_clip = effects.zoom_in(hook_clip, center, dur=layout.HOOK_INTRO_SEC).with_start(0)
+    hook_clip = effects.drop_slam(hook_clip, center).with_start(0)
     clips.append(hook_clip)
 
     # visual_keyword: pop_in バウンス（hook後〜末尾）
@@ -162,6 +160,19 @@ def _telop_layers(script: Script, tl: Timeline) -> list[ImageClip]:
     vk_clip = _pil_to_imageclip(vk_png).with_duration(vk_dur)
     vk_clip = effects.pop_in(vk_clip, center, dur=layout.TELOP_BOUNCE_SEC).with_start(hook_end)
     clips.append(vk_clip)
+    return clips
+
+
+def _accent_layers(script: Script, tl: Timeline) -> list[ImageClip]:
+    """フラッシュ系のアクセント（最前面レイヤ）。
+
+    - フックのデカ文字着地の瞬間（t=HOOK_DROP_SEC）に白フラッシュ
+    - emotion=surprised のセリフ頭に控えめな小フラッシュ（感情連動）
+    """
+    clips: list[ImageClip] = [effects.flash(at=layout.HOOK_DROP_SEC)]
+    for span in tl.spans:
+        if span.emotion == "surprised" and span.start > layout.HOOK_DROP_SEC:
+            clips.append(effects.flash(at=span.start, opacity=layout.SURPRISE_FLASH_OPACITY))
     return clips
 
 
@@ -234,8 +245,7 @@ def render_script_object(script: Script, out: Path, preview: bool = False) -> Re
     layers += _subtitle_layers(script, tl)
     layers += _telop_layers(script, tl)
     layers += _top_layers(script, tl)
-    # hook 冒頭の白フラッシュ
-    layers.append(effects.flash(at=0.0))
+    layers += _accent_layers(script, tl)
 
     video = CompositeVideoClip(layers, size=layout.CANVAS).with_duration(tl.total)
 
